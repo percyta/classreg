@@ -14,13 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          class_name: string
+          created_at: string
+          day_index: number
+          id: string
+          nickname: string
+          owner_token: string
+          slot: string
+          subject: string
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          day_index: number
+          id?: string
+          nickname: string
+          owner_token: string
+          slot: string
+          subject: string
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          day_index?: number
+          id?: string
+          nickname?: string
+          owner_token?: string
+          slot?: string
+          subject?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cancel_booking: {
+        Args: { p_id: string; p_token: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
