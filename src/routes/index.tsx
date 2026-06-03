@@ -512,7 +512,7 @@ function BookingModal({
   const [className, setClassName] = useState(saved.className);
   const [submitting, setSubmitting] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     const n = nickname.trim();
     const c = className.trim();
