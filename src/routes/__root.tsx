@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Class Reg" },
+      { name: "description", content: "Web application for booking classes, displaying real-time availability and managing registrations." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Class Reg" },
+      { property: "og:description", content: "Web application for booking classes, displaying real-time availability and managing registrations." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Class Reg" },
+      { name: "twitter:description", content: "Web application for booking classes, displaying real-time availability and managing registrations." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/517595a4-9e26-49df-82f3-5c21ec0763e0/id-preview-abd67bbe--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780546604043.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/517595a4-9e26-49df-82f3-5c21ec0763e0/id-preview-abd67bbe--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780546604043.png" },
     ],
     links: [
       {
