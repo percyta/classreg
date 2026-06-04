@@ -19,6 +19,7 @@ const SUBJECTS: { id: Subject; name: string; emoji: string }[] = [
 ];
 
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const SLOTS = [
   { id: "morning", name: "เช้า", time: "08:30 - 11:30" },
   { id: "afternoon", name: "บ่าย", time: "13:00 - 15:00" },
@@ -466,6 +467,166 @@ function ApiDocs() {
 // ไม่ตรง (404)
 { "success": false, "message": "ไม่พบการจองที่ตรงกับชื่อเล่นและชั้นเรียนนี้ ยกเลิกไม่ได้" }`}
       />
+
+      <ApiTester />
+    </div>
+  );
+}
+
+function ApiTester() {
+  const [method, setMethod] = useState<"GET" | "POST" | "DELETE">("GET");
+  const [subject, setSubject] = useState<"" | "math" | "science">("");
+  const [day, setDay] = useState<"" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun">("");
+  const [slot, setSlot] = useState<"" | "morning" | "afternoon" | "evening">("");
+  const [nickname, setNickname] = useState("");
+  const [className, setClassName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState<string | null>(null);
+  const [status, setStatus] = useState<number | null>(null);
+
+  const test = async () => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const url = new URL(`${base}/api/public/bookings`);
+
+    if (subject) url.searchParams.set("subject", subject);
+    if (day) url.searchParams.set("day", day);
+    if (slot) url.searchParams.set("slot", slot);
+
+    setLoading(true);
+    setResponse(null);
+    setStatus(null);
+
+    try {
+      let res: Response;
+      if (method === "GET") {
+        res = await fetch(url.toString());
+      } else {
+        const body: Record<string, string> = {};
+        if (subject) body.subject = subject;
+        if (day) body.day = day;
+        if (slot) body.slot = slot;
+        if (nickname) body.nickname = nickname;
+        if (className) body.class_name = className;
+        res = await fetch(url.toString(), {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+      const text = await res.text();
+      setStatus(res.status);
+      try {
+        const json = JSON.parse(text);
+        setResponse(JSON.stringify(json, null, 2));
+      } catch {
+        setResponse(text);
+      }
+    } catch (err) {
+      setResponse(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <h3 className="text-lg font-bold mb-4">🧪 ทดสอบ API</h3>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="block">
+          <span className="text-sm font-medium">Method</span>
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value as "GET" | "POST" | "DELETE")}
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="GET">GET - ดูช่วงเวลาว่าง</option>
+            <option value="POST">POST - จอง</option>
+            <option value="DELETE">DELETE - ยกเลิก</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">วิชา</span>
+          <select
+            value={subject}
+            onChange={(e) => setSubject(e.target.value as "" | "math" | "science")}
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">ทั้งหมด</option>
+            <option value="math">คณิตศาสตร์</option>
+            <option value="science">วิทยาศาสตร์</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">วัน</span>
+          <select
+            value={day}
+            onChange={(e) => setDay(e.target.value as "" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")}
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">ทุกวัน</option>
+            {DAY_KEYS.map((d, i) => (
+              <option key={d} value={d}>{DAYS[i]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">ช่วงเวลา</span>
+          <select
+            value={slot}
+            onChange={(e) => setSlot(e.target.value as "" | "morning" | "afternoon" | "evening")}
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">ทุกช่วง</option>
+            {SLOTS.map((s) => (
+              <option key={s.id} value={s.id}>{s.name} {s.time}</option>
+            ))}
+          </select>
+        </label>
+        {method !== "GET" && (
+          <>
+            <label className="block">
+              <span className="text-sm font-medium">ชื่อเล่น</span>
+              <input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="เช่น ต๊ะ"
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">ชั้นเรียน</span>
+              <input
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+                placeholder="เช่น 3/8"
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </label>
+          </>
+        )}
+      </div>
+      <button
+        onClick={test}
+        disabled={loading}
+        className="mt-4 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {loading ? "กำลังทดสอบ..." : "🚀 ทดสอบ API"}
+      </button>
+      {status !== null && (
+        <div className="mt-3">
+          <div className="text-xs font-medium text-muted-foreground">
+            Status: <span className={status >= 200 && status < 300 ? "text-emerald-600" : status >= 400 ? "text-rose-600" : "text-foreground"}>{status}</span>
+          </div>
+        </div>
+      )}
+      {response !== null && (
+        <div className="mt-2">
+          <div className="text-xs font-medium text-muted-foreground">Response</div>
+          <pre className="mt-1 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <code>{response}</code>
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -512,7 +673,6 @@ function ApiBlock({
     </div>
   );
 }
-
 
 function StatCard({
   label,
