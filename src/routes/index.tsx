@@ -226,6 +226,30 @@ function Index() {
           </span>
         </header>
 
+        {/* View tabs */}
+        <div className="mb-6 inline-flex rounded-full border bg-card p-1">
+          {([
+            { id: "booking", label: "📅 จองคาบเรียน" },
+            { id: "api", label: "🔌 API Docs" },
+          ] as const).map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                view === v.id
+                  ? "bg-primary text-primary-foreground shadow"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {view === "api" ? (
+          <ApiDocs />
+        ) : (
+        <>
         {/* Subject tabs */}
         <div className="mb-6 flex flex-wrap gap-2">
           {SUBJECTS.map((s) => (
