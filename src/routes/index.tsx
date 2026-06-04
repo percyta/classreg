@@ -58,6 +58,7 @@ function getProfile(): { nickname: string; className: string } {
 }
 
 function Index() {
+  const [view, setView] = useState<"booking" | "api">("booking");
   const [subject, setSubject] = useState<Subject>("math");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +226,30 @@ function Index() {
           </span>
         </header>
 
+        {/* View tabs */}
+        <div className="mb-6 inline-flex rounded-full border bg-card p-1">
+          {([
+            { id: "booking", label: "📅 จองคาบเรียน" },
+            { id: "api", label: "🔌 API Docs" },
+          ] as const).map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                view === v.id
+                  ? "bg-primary text-primary-foreground shadow"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {view === "api" ? (
+          <ApiDocs />
+        ) : (
+        <>
         {/* Subject tabs */}
         <div className="mb-6 flex flex-wrap gap-2">
           {SUBJECTS.map((s) => (
@@ -348,10 +373,146 @@ function Index() {
             onSubmit={submitBooking}
           />
         )}
+        </>
+        )}
       </div>
     </div>
   );
 }
+
+function ApiDocs() {
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  const endpoint = `${base}/api/public/bookings`;
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border bg-card p-5">
+        <h2 className="text-xl font-bold">API สำหรับเชื่อมระบบอื่น</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Base URL:{" "}
+          <code className="rounded bg-muted px-2 py-0.5 text-xs">{endpoint}</code>
+        </p>
+        <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+          <div>
+            <span className="font-semibold text-foreground">subject:</span> math | science
+          </div>
+          <div>
+            <span className="font-semibold text-foreground">day:</span> mon | tue | wed | thu | fri | sat | sun
+          </div>
+          <div>
+            <span className="font-semibold text-foreground">slot:</span> morning | afternoon | evening
+          </div>
+        </div>
+      </div>
+
+      <ApiBlock
+        method="GET"
+        color="bg-emerald-500"
+        title="1) ดูช่วงเวลาที่ว่างอยู่"
+        desc="ถ้าไม่ใส่ subject / day / slot จะคืนช่วงเวลาว่างทุกวันทุกวิชา"
+        url={`${endpoint}?subject=math&day=mon&slot=morning`}
+        request={`curl "${endpoint}?subject=math&day=mon"`}
+        response={`{
+  "count": 2,
+  "slots": [
+    {
+      "subject": "math", "day": "mon", "day_th": "จันทร์",
+      "slot": "morning", "time": "08:30-11:30",
+      "capacity": 20, "booked": 3, "available": 17
+    }
+  ]
+}`}
+      />
+
+      <ApiBlock
+        method="POST"
+        color="bg-sky-500"
+        title="2) จองช่วงเวลาที่ว่าง"
+        desc="ถ้าเต็มจะคืน 'ช่วงเวลานี้เต็ม'"
+        url={endpoint}
+        request={`curl -X POST ${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "subject": "math",
+    "day": "mon",
+    "slot": "morning",
+    "nickname": "ต๊ะ",
+    "class_name": "3/8"
+  }'`}
+        response={`// สำเร็จ (201)
+{ "success": true, "message": "ลงทะเบียนสำเร็จ", "booking": { ... } }
+
+// เต็ม (409)
+{ "success": false, "message": "ช่วงเวลานี้เต็ม" }`}
+      />
+
+      <ApiBlock
+        method="DELETE"
+        color="bg-rose-500"
+        title="3) ยกเลิกการจอง"
+        desc="ต้องส่ง nickname + class_name ให้ตรงกับตอนจอง ถึงจะยกเลิกได้"
+        url={endpoint}
+        request={`curl -X DELETE ${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "subject": "math",
+    "day": "mon",
+    "slot": "morning",
+    "nickname": "ต๊ะ",
+    "class_name": "3/8"
+  }'`}
+        response={`// สำเร็จ (200)
+{ "success": true, "message": "ยกเลิกการจองสำเร็จ", "cancelled": 1 }
+
+// ไม่ตรง (404)
+{ "success": false, "message": "ไม่พบการจองที่ตรงกับชื่อเล่นและชั้นเรียนนี้ ยกเลิกไม่ได้" }`}
+      />
+    </div>
+  );
+}
+
+function ApiBlock({
+  method,
+  color,
+  title,
+  desc,
+  url,
+  request,
+  response,
+}: {
+  method: string;
+  color: string;
+  title: string;
+  desc: string;
+  url: string;
+  request: string;
+  response: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded px-2 py-1 text-xs font-bold text-white ${color}`}>
+          {method}
+        </span>
+        <code className="break-all rounded bg-muted px-2 py-1 text-xs">{url}</code>
+      </div>
+      <h3 className="mt-3 font-semibold">{title}</h3>
+      <p className="text-sm text-muted-foreground">{desc}</p>
+      <div className="mt-3">
+        <div className="text-xs font-medium text-muted-foreground">Request</div>
+        <pre className="mt-1 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+          <code>{request}</code>
+        </pre>
+      </div>
+      <div className="mt-3">
+        <div className="text-xs font-medium text-muted-foreground">Response</div>
+        <pre className="mt-1 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+          <code>{response}</code>
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 
 function StatCard({
   label,
