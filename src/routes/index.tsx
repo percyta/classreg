@@ -58,6 +58,7 @@ function getProfile(): { nickname: string; className: string } {
 }
 
 function Index() {
+  const [view, setView] = useState<"booking" | "api">("booking");
   const [subject, setSubject] = useState<Subject>("math");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
