@@ -19,7 +19,7 @@ const SUBJECTS: { id: Subject; name: string; emoji: string }[] = [
 ];
 
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
-const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
 const SLOTS = [
   { id: "morning", name: "เช้า", time: "08:30 - 11:30" },
   { id: "afternoon", name: "บ่าย", time: "13:00 - 15:00" },
