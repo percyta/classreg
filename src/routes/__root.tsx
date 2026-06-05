@@ -117,11 +117,46 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function Navbar() {
+  return (
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <Link to="/" className="flex items-center gap-2 font-bold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            📚
+          </span>
+          <span className="text-lg">ClassReg</span>
+        </Link>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Link
+            to="/"
+            activeOptions={{ exact: true }}
+            activeProps={{ className: "bg-secondary text-secondary-foreground" }}
+            inactiveProps={{ className: "text-muted-foreground hover:bg-muted" }}
+            className="rounded-full px-3 py-2 text-sm font-medium transition sm:px-4"
+          >
+            หน้าแรก
+          </Link>
+          <Link
+            to="/booking"
+            activeProps={{ className: "bg-primary text-primary-foreground shadow" }}
+            inactiveProps={{ className: "bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground" }}
+            className="rounded-full px-3 py-2 text-sm font-medium transition sm:px-4"
+          >
+            จองคาบเรียน
+          </Link>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Navbar />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
