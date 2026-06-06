@@ -342,7 +342,7 @@ function Index() {
             day={DAYS[detail.d]}
             slot={SLOTS.find((s) => s.id === detail.slot)!}
             bookings={cellOf(detail.d, detail.slot)}
-            myToken={token}
+            myToken={tokenHash}
             onClose={() => setDetail(null)}
             onCancel={(id) => cancelBooking(id)}
             onBook={() => {
