@@ -88,8 +88,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Class Reg" },
       { name: "twitter:description", content: "Web application for booking classes, displaying real-time availability and managing registrations." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/517595a4-9e26-49df-82f3-5c21ec0763e0/id-preview-abd67bbe--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780546604043.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/517595a4-9e26-49df-82f3-5c21ec0763e0/id-preview-abd67bbe--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780546604043.png" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5e10fb68-9971-44b2-aa27-664ddf545c77/id-preview-5120b3f0--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780720492148.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5e10fb68-9971-44b2-aa27-664ddf545c77/id-preview-5120b3f0--55d27a8c-f888-4f62-b464-fc8aedcbed7f.lovable.app-1780720492148.png" },
     ],
     links: [
       {
