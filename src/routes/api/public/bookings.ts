@@ -112,6 +112,7 @@ export const Route = createFileRoute("/api/public/bookings")({
       // 2) Book a slot
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { sha256Hex } = await import("@/lib/hash.server");
         let body: unknown;
         try {
           body = await request.json();
@@ -135,7 +136,9 @@ export const Route = createFileRoute("/api/public/bookings")({
         if ((count ?? 0) >= CAPACITY)
           return json(409, { success: false, message: "ช่วงเวลานี้เต็ม" });
 
-        const owner_token = `api:${nickname}|${class_name}`;
+        // Store a SHA-256 hash of the synthetic owner token so it cannot be
+        // stolen by reading the bookings table or listening to realtime.
+        const owner_token = sha256Hex(`api:${nickname}|${class_name}`);
         const { data, error } = await supabaseAdmin
           .from("bookings")
           .insert({ subject, day_index: d_index, slot, nickname, class_name, owner_token })

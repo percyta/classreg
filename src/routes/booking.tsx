@@ -49,6 +49,13 @@ function getOwnerToken(): string {
   return t;
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function getProfile(): { nickname: string; className: string } {
   if (typeof window === "undefined") return { nickname: "", className: "" };
   try {
@@ -66,9 +73,12 @@ function Index() {
   const [detail, setDetail] = useState<{ d: number; slot: SlotId } | null>(null);
   const [bookingTarget, setBookingTarget] = useState<{ d: number; slot: SlotId } | null>(null);
   const [token, setToken] = useState("");
+  const [tokenHash, setTokenHash] = useState("");
 
   useEffect(() => {
-    setToken(getOwnerToken());
+    const t = getOwnerToken();
+    setToken(t);
+    void sha256Hex(t).then(setTokenHash);
   }, []);
 
   useEffect(() => {
@@ -137,23 +147,23 @@ function Index() {
       for (const slot of SLOTS) {
         const arr = cellOf(d, slot.id);
         booked += arr.length;
-        if (token) mine += arr.filter((b) => b.owner_token === token).length;
+        if (tokenHash) mine += arr.filter((b) => b.owner_token === tokenHash).length;
       }
     }
     return { total, booked, free: total - booked, mine };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookings, subject, token]);
+  }, [bookings, subject, tokenHash]);
 
   const statusOf = (d: number, slot: SlotId) => {
     const arr = cellOf(d, slot);
-    if (token && arr.some((b) => b.owner_token === token)) return "mine" as const;
+    if (tokenHash && arr.some((b) => b.owner_token === tokenHash)) return "mine" as const;
     if (arr.length >= CAPACITY) return "full" as const;
     return "free" as const;
   };
 
   const handleCellClick = (d: number, slot: SlotId) => {
     const arr = cellOf(d, slot);
-    const myBooking = token ? arr.find((b) => b.owner_token === token) : undefined;
+    const myBooking = tokenHash ? arr.find((b) => b.owner_token === tokenHash) : undefined;
     if (myBooking) {
       // cancel
       void cancelBooking(myBooking.id);
@@ -186,7 +196,7 @@ function Index() {
       setBookingTarget(null);
       return;
     }
-    if (token && arr.some((b) => b.owner_token === token)) {
+    if (tokenHash && arr.some((b) => b.owner_token === tokenHash)) {
       alert("คุณจองช่วงเวลานี้แล้ว");
       setBookingTarget(null);
       return;
@@ -195,13 +205,14 @@ function Index() {
       "booking-profile",
       JSON.stringify({ nickname, className }),
     );
+    const hash = tokenHash || (await sha256Hex(token));
     const { error } = await supabase.from("bookings").insert({
       subject,
       day_index: bookingTarget.d,
       slot: bookingTarget.slot,
       nickname,
       class_name: className,
-      owner_token: token,
+      owner_token: hash,
     });
     if (error) {
       alert("จองไม่สำเร็จ: " + error.message);
@@ -331,7 +342,7 @@ function Index() {
             day={DAYS[detail.d]}
             slot={SLOTS.find((s) => s.id === detail.slot)!}
             bookings={cellOf(detail.d, detail.slot)}
-            myToken={token}
+            myToken={tokenHash}
             onClose={() => setDetail(null)}
             onCancel={(id) => cancelBooking(id)}
             onBook={() => {
