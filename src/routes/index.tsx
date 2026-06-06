@@ -1,590 +1,243 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ระบบจองลงทะเบียนเรียน" },
-      { name: "description", content: "จองคาบเรียนคณิตศาสตร์และวิทยาศาสตร์ แบบ real-time" },
+      { title: "ClassReg — ระบบจองคาบเรียนแบบเรียลไทม์" },
+      { name: "description", content: "จองคาบเรียนคณิตศาสตร์และวิทยาศาสตร์ออนไลน์ ดูที่นั่งว่างแบบ real-time ไม่ต้องสมัครสมาชิก" },
+      { property: "og:title", content: "ClassReg — ระบบจองคาบเรียนแบบเรียลไทม์" },
+      { property: "og:description", content: "จองคาบเรียนออนไลน์ง่าย ๆ ดูที่นั่งว่าง real-time" },
     ],
   }),
-  component: Index,
+  component: Landing,
 });
 
-type Subject = "math" | "science";
-const SUBJECTS: { id: Subject; name: string; emoji: string }[] = [
-  { id: "math", name: "คณิตศาสตร์", emoji: "📐" },
-  { id: "science", name: "วิทยาศาสตร์", emoji: "🔬" },
-];
-
-const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
-
-const SLOTS = [
-  { id: "morning", name: "เช้า", time: "08:30 - 11:30" },
-  { id: "afternoon", name: "บ่าย", time: "13:00 - 15:00" },
-  { id: "evening", name: "เย็น", time: "17:00 - 18:30" },
-] as const;
-type SlotId = (typeof SLOTS)[number]["id"];
-const CAPACITY = 20;
-
-type Booking = {
-  id: string;
-  subject: Subject;
-  day_index: number;
-  slot: SlotId;
-  nickname: string;
-  class_name: string;
-  owner_token: string;
-  created_at: string;
-};
-
-function getOwnerToken(): string {
-  if (typeof window === "undefined") return "";
-  let t = localStorage.getItem("booking-owner-token");
-  if (!t) {
-    t = crypto.randomUUID() + "-" + crypto.randomUUID();
-    localStorage.setItem("booking-owner-token", t);
-  }
-  return t;
-}
-
-function getProfile(): { nickname: string; className: string } {
-  if (typeof window === "undefined") return { nickname: "", className: "" };
-  try {
-    const raw = localStorage.getItem("booking-profile");
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { nickname: "", className: "" };
-}
-
-function Index() {
-  
-  const [subject, setSubject] = useState<Subject>("math");
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState<{ d: number; slot: SlotId } | null>(null);
-  const [bookingTarget, setBookingTarget] = useState<{ d: number; slot: SlotId } | null>(null);
-  const [token, setToken] = useState("");
-
-  useEffect(() => {
-    setToken(getOwnerToken());
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    supabase
-      .from("bookings")
-      .select("*")
-      .order("created_at", { ascending: true })
-      .then(({ data, error }) => {
-        if (!mounted) return;
-        if (!error && data) setBookings(data as Booking[]);
-        setLoading(false);
-      });
-
-    const channel = supabase
-      .channel("bookings-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        (payload) => {
-          setBookings((prev) => {
-            if (payload.eventType === "INSERT") {
-              const row = payload.new as Booking;
-              if (prev.some((b) => b.id === row.id)) return prev;
-              return [...prev, row];
-            }
-            if (payload.eventType === "DELETE") {
-              const row = payload.old as Booking;
-              return prev.filter((b) => b.id !== row.id);
-            }
-            if (payload.eventType === "UPDATE") {
-              const row = payload.new as Booking;
-              return prev.map((b) => (b.id === row.id ? row : b));
-            }
-            return prev;
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const grid = useMemo(() => {
-    const map = new Map<string, Booking[]>();
-    for (const b of bookings) {
-      const k = `${b.subject}-${b.day_index}-${b.slot}`;
-      const arr = map.get(k) ?? [];
-      arr.push(b);
-      map.set(k, arr);
-    }
-    return map;
-  }, [bookings]);
-
-  const cellOf = (d: number, slot: SlotId) =>
-    grid.get(`${subject}-${d}-${slot}`) ?? [];
-
-  const totals = useMemo(() => {
-    let booked = 0;
-    let mine = 0;
-    const total = DAYS.length * SLOTS.length * CAPACITY;
-    for (let d = 0; d < DAYS.length; d++) {
-      for (const slot of SLOTS) {
-        const arr = cellOf(d, slot.id);
-        booked += arr.length;
-        if (token) mine += arr.filter((b) => b.owner_token === token).length;
-      }
-    }
-    return { total, booked, free: total - booked, mine };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookings, subject, token]);
-
-  const statusOf = (d: number, slot: SlotId) => {
-    const arr = cellOf(d, slot);
-    if (token && arr.some((b) => b.owner_token === token)) return "mine" as const;
-    if (arr.length >= CAPACITY) return "full" as const;
-    return "free" as const;
-  };
-
-  const handleCellClick = (d: number, slot: SlotId) => {
-    const arr = cellOf(d, slot);
-    const myBooking = token ? arr.find((b) => b.owner_token === token) : undefined;
-    if (myBooking) {
-      // cancel
-      void cancelBooking(myBooking.id);
-      return;
-    }
-    if (arr.length >= CAPACITY) return;
-    setBookingTarget({ d, slot });
-  };
-
-  async function cancelBooking(id: string) {
-    // optimistic
-    setBookings((prev) => prev.filter((b) => b.id !== id));
-    const { data, error } = await supabase.rpc("cancel_booking", {
-      p_id: id,
-      p_token: token,
-    });
-    if (error || data === false) {
-      // refetch on failure
-      const { data: fresh } = await supabase.from("bookings").select("*");
-      if (fresh) setBookings(fresh as Booking[]);
-      alert("ยกเลิกไม่สำเร็จ");
-    }
-  }
-
-  async function submitBooking(nickname: string, className: string) {
-    if (!bookingTarget) return;
-    const arr = cellOf(bookingTarget.d, bookingTarget.slot);
-    if (arr.length >= CAPACITY) {
-      alert("ที่นั่งเต็มแล้ว");
-      setBookingTarget(null);
-      return;
-    }
-    if (token && arr.some((b) => b.owner_token === token)) {
-      alert("คุณจองช่วงเวลานี้แล้ว");
-      setBookingTarget(null);
-      return;
-    }
-    localStorage.setItem(
-      "booking-profile",
-      JSON.stringify({ nickname, className }),
-    );
-    const { error } = await supabase.from("bookings").insert({
-      subject,
-      day_index: bookingTarget.d,
-      slot: bookingTarget.slot,
-      nickname,
-      class_name: className,
-      owner_token: token,
-    });
-    if (error) {
-      alert("จองไม่สำเร็จ: " + error.message);
-      return;
-    }
-    setBookingTarget(null);
-  }
-
+function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              ระบบจองลงทะเบียนเรียน
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              กดช่องที่ว่างเพื่อจอง • ข้อมูลซิงค์แบบ real-time ทุกคนเห็นเหมือนกัน
-            </p>
-          </div>
-          <span className="hidden rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground sm:inline">
-            🟢 Live
-          </span>
-        </header>
+      {/* HERO */}
+      <section className="relative overflow-hidden">
+        <div
+          className="absolute inset-0 -z-10 opacity-[0.08]"
+          style={{ background: "var(--gradient-hero)" }}
+        />
+        <div className="absolute -top-40 left-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 rounded-full blur-3xl opacity-30"
+          style={{ background: "var(--gradient-hero)" }} />
 
-        {/* Subject tabs */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          {SUBJECTS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSubject(s.id);
-                setDetail(null);
-              }}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                subject === s.id
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
-            >
-              {s.emoji} {s.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="ที่นั่งทั้งหมด" value={totals.total} />
-          <StatCard label="ว่าง" value={totals.free} tone="free" />
-          <StatCard label="ถูกจอง" value={totals.booked} tone="full" />
-          <StatCard label="ฉันจองไว้" value={totals.mine} tone="mine" />
-        </div>
-
-        {/* Legend */}
-        <div className="mb-4 flex flex-wrap gap-4 text-sm">
-          <Legend className="bg-emerald-500" label="ว่าง" />
-          <Legend className="bg-rose-500" label="เต็ม" />
-          <Legend className="bg-sky-500" label="ที่ฉันจอง (กดเพื่อยกเลิก)" />
-        </div>
-
-        {/* Grid */}
-        <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="p-3 text-left font-semibold">ช่วงเวลา</th>
-                {DAYS.map((d) => (
-                  <th key={d} className="p-3 text-center font-semibold">
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {SLOTS.map((slot) => (
-                <tr key={slot.id} className="border-t">
-                  <td className="p-3 align-top">
-                    <div className="font-medium">{slot.name}</div>
-                    <div className="text-xs text-muted-foreground">{slot.time}</div>
-                  </td>
-                  {DAYS.map((_, d) => {
-                    const arr = cellOf(d, slot.id);
-                    const status = statusOf(d, slot.id);
-                    const color =
-                      status === "mine"
-                        ? "bg-sky-500 hover:bg-sky-600 text-white"
-                        : status === "full"
-                          ? "bg-rose-500 hover:bg-rose-600 text-white"
-                          : "bg-emerald-500 hover:bg-emerald-600 text-white";
-                    return (
-                      <td key={d} className="p-2">
-                        <button
-                          onClick={() => handleCellClick(d, slot.id)}
-                          disabled={loading}
-                          className={`flex w-full flex-col items-center justify-center rounded-lg px-2 py-3 font-medium shadow-sm transition disabled:opacity-50 ${color}`}
-                          title={`${DAYS[d]} ${slot.time}`}
-                        >
-                          <span className="text-base">
-                            {CAPACITY - arr.length}/{CAPACITY}
-                          </span>
-                          <span className="mt-1 text-[10px] uppercase tracking-wide opacity-90">
-                            {status === "mine"
-                              ? "จองแล้ว"
-                              : status === "full"
-                                ? "เต็ม"
-                                : "ว่าง"}
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => setDetail({ d, slot: slot.id })}
-                          className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
-                        >
-                          ดูรายละเอียด
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {detail && (
-          <DetailPanel
-            subject={SUBJECTS.find((s) => s.id === subject)!.name}
-            day={DAYS[detail.d]}
-            slot={SLOTS.find((s) => s.id === detail.slot)!}
-            bookings={cellOf(detail.d, detail.slot)}
-            myToken={token}
-            onClose={() => setDetail(null)}
-            onCancel={(id) => cancelBooking(id)}
-            onBook={() => {
-              setBookingTarget(detail);
-              setDetail(null);
-            }}
-          />
-        )}
-
-        {bookingTarget && (
-          <BookingModal
-            subject={SUBJECTS.find((s) => s.id === subject)!.name}
-            day={DAYS[bookingTarget.d]}
-            slot={SLOTS.find((s) => s.id === bookingTarget.slot)!}
-            onClose={() => setBookingTarget(null)}
-            onSubmit={submitBooking}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone?: "free" | "full" | "mine";
-}) {
-  const color =
-    tone === "free"
-      ? "text-emerald-600"
-      : tone === "full"
-        ? "text-rose-600"
-        : tone === "mine"
-          ? "text-sky-600"
-          : "text-foreground";
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
-    </div>
-  );
-}
-
-function Legend({ className, label }: { className: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`h-4 w-4 rounded ${className}`} />
-      <span className="text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
-function DetailPanel({
-  subject,
-  day,
-  slot,
-  bookings,
-  myToken,
-  onClose,
-  onCancel,
-  onBook,
-}: {
-  subject: string;
-  day: string;
-  slot: { name: string; time: string };
-  bookings: Booking[];
-  myToken: string;
-  onClose: () => void;
-  onCancel: (id: string) => void;
-  onBook: () => void;
-}) {
-  const free = CAPACITY - bookings.length;
-  const mine = bookings.find((b) => b.owner_token === myToken);
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">{subject}</h3>
-            <p className="text-sm text-muted-foreground">
-              วัน{day} • {slot.name} {slot.time}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-lg bg-muted p-3">
-            <div className="text-xs text-muted-foreground">ทั้งหมด</div>
-            <div className="text-xl font-bold">{CAPACITY}</div>
-          </div>
-          <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
-            <div className="text-xs text-emerald-700 dark:text-emerald-400">ว่าง</div>
-            <div className="text-xl font-bold text-emerald-600">{free}</div>
-          </div>
-          <div className="rounded-lg bg-rose-50 p-3 dark:bg-rose-950/30">
-            <div className="text-xs text-rose-700 dark:text-rose-400">ถูกจอง</div>
-            <div className="text-xl font-bold text-rose-600">{bookings.length}</div>
-          </div>
-        </div>
-
-        <div className="mt-4 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2 text-sm">
-          {bookings.length === 0 && (
-            <div className="px-2 py-3 text-center text-muted-foreground">
-              ยังไม่มีผู้จอง
+        <div className="mx-auto max-w-7xl px-4 pb-24 pt-16 sm:px-6 sm:pt-24 lg:px-8 lg:pt-32">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              ระบบ Live — อัปเดตที่นั่ง real-time
             </div>
-          )}
-          {bookings.map((b) => (
-            <div
-              key={b.id}
-              className={`flex items-center justify-between rounded px-2 py-1 ${
-                b.owner_token === myToken ? "bg-sky-50 dark:bg-sky-950/30" : ""
-              }`}
-            >
-              <span>
-                {b.nickname}{" "}
-                <span className="text-muted-foreground">{b.class_name}</span>
-                {b.owner_token === myToken && (
-                  <span className="ml-1 text-xs text-sky-600">(คุณ)</span>
-                )}
+            <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              จองคาบเรียน{" "}
+              <span
+                className="bg-clip-text text-transparent"
+                style={{ backgroundImage: "var(--gradient-hero)" }}
+              >
+                ง่ายขึ้นกว่าเดิม
               </span>
-              {b.owner_token === myToken && (
-                <button
-                  onClick={() => onCancel(b.id)}
-                  className="text-xs text-rose-600 hover:underline"
-                >
-                  ยกเลิก
-                </button>
-              )}
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
+              ระบบลงทะเบียนเรียนออนไลน์ ดูที่นั่งว่างทันที จองได้ใน 3 วินาที
+              ไม่ต้องสมัครสมาชิก ไม่ต้องโหลดแอป ใช้ได้ทุกอุปกรณ์
+            </p>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/booking"
+                className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90"
+                style={{ background: "var(--gradient-hero)" }}
+              >
+                จองคาบเรียนเลย
+                <span aria-hidden>→</span>
+              </Link>
+              <a
+                href="#features"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-7 py-3.5 text-sm font-semibold transition hover:bg-muted"
+              >
+                ดูฟีเจอร์
+              </a>
             </div>
-          ))}
-        </div>
 
-        {mine ? (
-          <button
-            onClick={() => onCancel(mine.id)}
-            className="mt-4 w-full rounded-lg bg-sky-500 px-4 py-3 font-medium text-white hover:bg-sky-600"
-          >
-            ยกเลิกการจองของฉัน
-          </button>
-        ) : (
-          <button
-            onClick={onBook}
-            disabled={free === 0}
-            className="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-3 font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {free === 0 ? "ที่นั่งเต็ม" : "จองช่วงเวลานี้"}
-          </button>
-        )}
-      </div>
+            <div className="mt-14 grid grid-cols-3 gap-4 text-center">
+              <Stat number="2" label="วิชา" />
+              <Stat number="21" label="คาบต่อสัปดาห์" />
+              <Stat number="420" label="ที่นั่งทั้งหมด" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="border-t border-border bg-muted/30">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">ฟีเจอร์</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              ทุกอย่างที่ต้องการ ในที่เดียว
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              ออกแบบมาเพื่อความเร็วและความง่าย เน้นใช้งานจริงในห้องเรียน
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <Feature
+              icon="⚡"
+              title="Real-time Sync"
+              desc="เห็นที่นั่งว่างพร้อมกันทุกเครื่อง อัปเดตทันทีเมื่อมีคนจอง"
+            />
+            <Feature
+              icon="🎯"
+              title="ไม่ต้องสมัครสมาชิก"
+              desc="แค่กรอกชื่อเล่นและชั้นเรียน จองได้เลย ไม่ต้องตั้งรหัสผ่าน"
+            />
+            <Feature
+              icon="📱"
+              title="ใช้ได้ทุกอุปกรณ์"
+              desc="มือถือ แท็บเล็ต คอมพิวเตอร์ เปิดเว็บแล้วใช้ได้ทันที"
+            />
+            <Feature
+              icon="🔒"
+              title="ยกเลิกได้เอง"
+              desc="จองแล้วเปลี่ยนใจ ยกเลิกการจองของตัวเองได้ตลอดเวลา"
+            />
+            <Feature
+              icon="📊"
+              title="ดูสถิติทันที"
+              desc="เห็นจำนวนที่ว่าง / ที่เต็ม / ที่คุณจองไว้ ครบในหน้าเดียว"
+            />
+            <Feature
+              icon="🔌"
+              title="มี Public API"
+              desc="เชื่อมต่อกับระบบอื่นได้ผ่าน REST API สำหรับเช็คและจองอัตโนมัติ"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section id="how" className="border-t border-border">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">วิธีใช้งาน</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              จองได้ใน 3 ขั้นตอน
+            </h2>
+          </div>
+
+          <div className="mt-14 grid gap-8 md:grid-cols-3">
+            <Step n="1" title="เลือกวิชา" desc="คณิตศาสตร์ หรือ วิทยาศาสตร์" />
+            <Step n="2" title="เลือกช่วงเวลาที่ว่าง" desc="กดที่ช่องสีเขียวบนตาราง 7 วัน" />
+            <Step n="3" title="กรอกชื่อ ยืนยัน" desc="ใส่ชื่อเล่นและชั้นเรียน เสร็จเลย" />
+          </div>
+
+          <div className="mt-14 text-center">
+            <Link
+              to="/booking"
+              className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90"
+              style={{ background: "var(--gradient-hero)" }}
+            >
+              เริ่มจองคาบเรียน
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="border-t border-border bg-muted/30">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-sm font-semibold uppercase tracking-wider text-primary">คำถามที่พบบ่อย</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">ข้อสงสัย</h2>
+          </div>
+          <div className="mt-10 space-y-3">
+            <Faq q="ต้องสมัครสมาชิกไหม?" a="ไม่ต้อง ใช้ชื่อเล่นและชั้นเรียนจองได้เลย ระบบจะจดจำการจองของคุณบนอุปกรณ์นั้น" />
+            <Faq q="หนึ่งคาบมีกี่ที่นั่ง?" a="คาบละ 20 ที่นั่ง รวมทั้งหมด 420 ที่นั่งต่อสัปดาห์" />
+            <Faq q="ยกเลิกการจองได้ไหม?" a="ได้ กดที่ช่องสีฟ้า (ที่คุณจองไว้) เพื่อยกเลิกได้ตลอดเวลา" />
+            <Faq q="ข้อมูลซิงค์เรียลไทม์จริงไหม?" a="จริง เมื่อมีคนจอง ทุกคนที่เปิดหน้าเว็บอยู่จะเห็นการเปลี่ยนแปลงทันที" />
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-border">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
+            <div className="flex items-center gap-2">
+              <span
+                className="grid h-7 w-7 place-items-center rounded-lg text-xs font-bold text-primary-foreground"
+                style={{ background: "var(--gradient-hero)" }}
+              >
+                C
+              </span>
+              <span className="font-semibold text-foreground">ClassReg</span>
+              <span>© {new Date().getFullYear()}</span>
+            </div>
+            <Link to="/booking" className="font-medium hover:text-foreground">
+              จองคาบเรียน →
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function BookingModal({
-  subject,
-  day,
-  slot,
-  onClose,
-  onSubmit,
-}: {
-  subject: string;
-  day: string;
-  slot: { name: string; time: string };
-  onClose: () => void;
-  onSubmit: (nickname: string, className: string) => void;
-}) {
-  const saved = getProfile();
-  const [nickname, setNickname] = useState(saved.nickname);
-  const [className, setClassName] = useState(saved.className);
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const n = nickname.trim();
-    const c = className.trim();
-    if (!n || !c) return;
-    if (n.length > 40 || c.length > 40) {
-      alert("ชื่อเล่นและชั้นเรียนต้องไม่เกิน 40 ตัวอักษร");
-      return;
-    }
-    setSubmitting(true);
-    await onSubmit(n, c);
-    setSubmitting(false);
-  };
-
+function Stat({ number, label }: { number: string; label: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl"
+    <div className="rounded-2xl border border-border bg-card/60 p-4 backdrop-blur">
+      <div
+        className="bg-clip-text text-3xl font-bold text-transparent sm:text-4xl"
+        style={{ backgroundImage: "var(--gradient-hero)" }}
       >
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">จอง {subject}</h3>
-            <p className="text-sm text-muted-foreground">
-              วัน{day} • {slot.name} {slot.time}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="text-sm font-medium">ชื่อเล่น</span>
-            <input
-              autoFocus
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              maxLength={40}
-              required
-              placeholder="เช่น ต๊ะ"
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">ชั้นเรียน</span>
-            <input
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              maxLength={40}
-              required
-              placeholder="เช่น 3/8"
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </label>
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-5 w-full rounded-lg bg-emerald-500 px-4 py-3 font-medium text-white transition hover:bg-emerald-600 disabled:opacity-50"
-        >
-          {submitting ? "กำลังจอง..." : "ยืนยันการจอง"}
-        </button>
-      </form>
+        {number}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </div>
+  );
+}
+
+function Feature({ icon, title, desc }: { icon: string; title: string; desc: string }) {
+  return (
+    <div className="group relative rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)] transition hover:-translate-y-1 hover:shadow-[var(--shadow-glow)]">
+      <div
+        className="grid h-12 w-12 place-items-center rounded-xl text-2xl"
+        style={{ background: "var(--gradient-soft)" }}
+      >
+        {icon}
+      </div>
+      <h3 className="mt-5 text-lg font-semibold">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
+
+function Step({ n, title, desc }: { n: string; title: string; desc: string }) {
+  return (
+    <div className="relative rounded-2xl border border-border bg-card p-6">
+      <div
+        className="grid h-12 w-12 place-items-center rounded-full text-lg font-bold text-primary-foreground shadow-[var(--shadow-glow)]"
+        style={{ background: "var(--gradient-hero)" }}
+      >
+        {n}
+      </div>
+      <h3 className="mt-5 text-lg font-semibold">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
+
+function Faq({ q, a }: { q: string; a: string }) {
+  return (
+    <details className="group rounded-xl border border-border bg-card p-5 transition hover:border-primary/40">
+      <summary className="flex cursor-pointer items-center justify-between gap-4 text-base font-medium">
+        {q}
+        <span className="text-primary transition group-open:rotate-45">+</span>
+      </summary>
+      <p className="mt-3 text-sm text-muted-foreground">{a}</p>
+    </details>
   );
 }
