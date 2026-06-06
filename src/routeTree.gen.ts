@@ -9,15 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as BookingRouteImport } from './routes/booking'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicBookingsRouteImport } from './routes/api/public/bookings'
 
-const BookingRoute = BookingRouteImport.update({
-  id: '/booking',
-  path: '/booking',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,43 +25,32 @@ const ApiPublicBookingsRoute = ApiPublicBookingsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
   '/api/public/bookings': typeof ApiPublicBookingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
   '/api/public/bookings': typeof ApiPublicBookingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/booking': typeof BookingRoute
   '/api/public/bookings': typeof ApiPublicBookingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/booking' | '/api/public/bookings'
+  fullPaths: '/' | '/api/public/bookings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/booking' | '/api/public/bookings'
-  id: '__root__' | '/' | '/booking' | '/api/public/bookings'
+  to: '/' | '/api/public/bookings'
+  id: '__root__' | '/' | '/api/public/bookings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BookingRoute: typeof BookingRoute
   ApiPublicBookingsRoute: typeof ApiPublicBookingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/booking': {
-      id: '/booking'
-      path: '/booking'
-      fullPath: '/booking'
-      preLoaderRoute: typeof BookingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -87,7 +70,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BookingRoute: BookingRoute,
   ApiPublicBookingsRoute: ApiPublicBookingsRoute,
 }
 export const routeTree = rootRouteImport
