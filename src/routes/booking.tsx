@@ -223,117 +223,149 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 flex items-start justify-between gap-4">
+      {/* soft hero gradient */}
+      <div className="absolute inset-x-0 top-0 -z-10 h-[280px] opacity-[0.06]" style={{ background: "var(--gradient-hero)" }} />
+
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              ระบบจองลงทะเบียนเรียน
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              กดช่องที่ว่างเพื่อจอง • ข้อมูลซิงค์แบบ real-time ทุกคนเห็นเหมือนกัน
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              Live — อัปเดต real-time
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">จองคาบเรียน</h1>
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+              เลือกวิชา แล้วกดที่ช่องว่างเพื่อจอง
             </p>
           </div>
-          <span className="hidden rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground sm:inline">
-            🟢 Live
-          </span>
+
+          {/* Segmented subject tabs */}
+          <div className="inline-flex rounded-full border border-border bg-card p-1 shadow-[var(--shadow-card)]">
+            {SUBJECTS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  setSubject(s.id);
+                  setDetail(null);
+                }}
+                className={`relative rounded-full px-5 py-2 text-sm font-medium transition ${
+                  subject === s.id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="mr-1.5">{s.emoji}</span>
+                {s.name}
+              </button>
+            ))}
+          </div>
         </header>
 
-        {/* Subject tabs */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          {SUBJECTS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSubject(s.id);
-                setDetail(null);
-              }}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                subject === s.id
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "bg-secondary text-secondary-foreground hover:bg-accent"
-              }`}
-            >
-              {s.emoji} {s.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="ที่นั่งทั้งหมด" value={totals.total} />
-          <StatCard label="ว่าง" value={totals.free} tone="free" />
-          <StatCard label="ถูกจอง" value={totals.booked} tone="full" />
-          <StatCard label="ฉันจองไว้" value={totals.mine} tone="mine" />
+        {/* Stats — slim row */}
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="ที่นั่งทั้งหมด" value={totals.total} icon="◇" />
+          <StatCard label="ว่าง" value={totals.free} tone="free" icon="○" />
+          <StatCard label="ถูกจอง" value={totals.booked} tone="full" icon="●" />
+          <StatCard label="ฉันจองไว้" value={totals.mine} tone="mine" icon="✓" />
         </div>
 
         {/* Legend */}
-        <div className="mb-4 flex flex-wrap gap-4 text-sm">
-          <Legend className="bg-emerald-500" label="ว่าง" />
-          <Legend className="bg-rose-500" label="เต็ม" />
-          <Legend className="bg-sky-500" label="ที่ฉันจอง (กดเพื่อยกเลิก)" />
+        <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+          <Legend variant="free" label="ว่าง" />
+          <Legend variant="mine" label="ที่ฉันจอง (กดเพื่อยกเลิก)" />
+          <Legend variant="full" label="เต็ม" />
         </div>
 
-        {/* Grid */}
-        <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="p-3 text-left font-semibold">ช่วงเวลา</th>
-                {DAYS.map((d) => (
-                  <th key={d} className="p-3 text-center font-semibold">
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {SLOTS.map((slot) => (
-                <tr key={slot.id} className="border-t">
-                  <td className="p-3 align-top">
-                    <div className="font-medium">{slot.name}</div>
-                    <div className="text-xs text-muted-foreground">{slot.time}</div>
-                  </td>
-                  {DAYS.map((_, d) => {
-                    const arr = cellOf(d, slot.id);
-                    const status = statusOf(d, slot.id);
-                    const color =
-                      status === "mine"
-                        ? "bg-sky-500 hover:bg-sky-600 text-white"
-                        : status === "full"
-                          ? "bg-rose-500 hover:bg-rose-600 text-white"
-                          : "bg-emerald-500 hover:bg-emerald-600 text-white";
-                    return (
-                      <td key={d} className="p-2">
-                        <button
-                          onClick={() => handleCellClick(d, slot.id)}
-                          disabled={loading}
-                          className={`flex w-full flex-col items-center justify-center rounded-lg px-2 py-3 font-medium shadow-sm transition disabled:opacity-50 ${color}`}
-                          title={`${DAYS[d]} ${slot.time}`}
-                        >
-                          <span className="text-base">
-                            {CAPACITY - arr.length}/{CAPACITY}
+        {/* Schedule — card-based grid */}
+        <div className="space-y-5">
+          {SLOTS.map((slot) => (
+            <section key={slot.id} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+              <div className="mb-4 flex items-baseline justify-between">
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-lg font-semibold">{slot.name}</h2>
+                  <span className="text-sm text-muted-foreground">{slot.time}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
+                {DAYS.map((dayName, d) => {
+                  const arr = cellOf(d, slot.id);
+                  const status = statusOf(d, slot.id);
+                  const free = CAPACITY - arr.length;
+                  const pct = (arr.length / CAPACITY) * 100;
+
+                  const base =
+                    "group relative flex w-full flex-col gap-2 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed";
+                  const styles =
+                    status === "mine"
+                      ? "border-primary bg-primary/10 hover:bg-primary/15"
+                      : status === "full"
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-border bg-background hover:border-primary hover:shadow-[var(--shadow-card)]";
+
+                  return (
+                    <div key={d} className="relative">
+                      <button
+                        onClick={() => handleCellClick(d, slot.id)}
+                        disabled={loading || (status === "full")}
+                        className={`${base} ${styles}`}
+                        title={`${dayName} ${slot.time}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {dayName}
                           </span>
-                          <span className="mt-1 text-[10px] uppercase tracking-wide opacity-90">
-                            {status === "mine"
-                              ? "จองแล้ว"
-                              : status === "full"
-                                ? "เต็ม"
-                                : "ว่าง"}
+                          {status === "mine" && (
+                            <span className="grid h-5 w-5 place-items-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                              ✓
+                            </span>
+                          )}
+                          {status === "full" && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide">
+                              เต็ม
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-2xl font-bold ${status === "mine" ? "text-primary" : status === "full" ? "text-muted-foreground" : "text-foreground"}`}>
+                            {free}
                           </span>
-                        </button>
-                        <button
-                          onClick={() => setDetail({ d, slot: slot.id })}
-                          className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
-                        >
-                          ดูรายละเอียด
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          <span className="text-xs text-muted-foreground">/ {CAPACITY}</span>
+                        </div>
+
+                        {/* progress bar */}
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-border/60">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              status === "mine"
+                                ? "bg-primary"
+                                : status === "full"
+                                  ? "bg-muted-foreground/40"
+                                  : "bg-primary/70"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setDetail({ d, slot: slot.id })}
+                        className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-md text-xs text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                        aria-label="ดูรายละเอียด"
+                        title="ดูรายละเอียด"
+                      >
+                        ⋯
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
 
         {detail && (
@@ -371,32 +403,49 @@ function StatCard({
   label,
   value,
   tone,
+  icon,
 }: {
   label: string;
   value: number;
   tone?: "free" | "full" | "mine";
+  icon?: string;
 }) {
   const color =
     tone === "free"
-      ? "text-emerald-600"
+      ? "text-primary"
+      : tone === "mine"
+        ? "text-primary"
+        : "text-foreground";
+  const iconBg =
+    tone === "free" || tone === "mine"
+      ? "bg-primary/10 text-primary"
       : tone === "full"
-        ? "text-rose-600"
-        : tone === "mine"
-          ? "text-sky-600"
-          : "text-foreground";
+        ? "bg-muted text-muted-foreground"
+        : "bg-secondary text-secondary-foreground";
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+      <div className={`grid h-10 w-10 place-items-center rounded-lg text-sm font-semibold ${iconBg}`}>
+        {icon ?? "·"}
+      </div>
+      <div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className={`text-xl font-bold leading-tight ${color}`}>{value}</div>
+      </div>
     </div>
   );
 }
 
-function Legend({ className, label }: { className: string; label: string }) {
+function Legend({ variant, label }: { variant: "free" | "mine" | "full"; label: string }) {
+  const cls =
+    variant === "free"
+      ? "border border-border bg-background"
+      : variant === "mine"
+        ? "border border-primary bg-primary/15"
+        : "border border-border bg-muted";
   return (
     <div className="flex items-center gap-2">
-      <span className={`h-4 w-4 rounded ${className}`} />
-      <span className="text-muted-foreground">{label}</span>
+      <span className={`h-3.5 w-3.5 rounded ${cls}`} />
+      <span>{label}</span>
     </div>
   );
 }
@@ -423,74 +472,85 @@ function DetailPanel({
   const free = CAPACITY - bookings.length;
   const mine = bookings.find((b) => b.owner_token === myToken);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-glow)]">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold">{subject}</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               วัน{day} • {slot.name} {slot.time}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent"
+            className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            aria-label="ปิด"
           >
             ✕
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-lg bg-muted p-3">
-            <div className="text-xs text-muted-foreground">ทั้งหมด</div>
-            <div className="text-xl font-bold">{CAPACITY}</div>
+        <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl border border-border bg-background p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ทั้งหมด</div>
+            <div className="mt-1 text-xl font-bold">{CAPACITY}</div>
           </div>
-          <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/30">
-            <div className="text-xs text-emerald-700 dark:text-emerald-400">ว่าง</div>
-            <div className="text-xl font-bold text-emerald-600">{free}</div>
+          <div className="rounded-xl border border-primary/40 bg-primary/10 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-primary">ว่าง</div>
+            <div className="mt-1 text-xl font-bold text-primary">{free}</div>
           </div>
-          <div className="rounded-lg bg-rose-50 p-3 dark:bg-rose-950/30">
-            <div className="text-xs text-rose-700 dark:text-rose-400">ถูกจอง</div>
-            <div className="text-xl font-bold text-rose-600">{bookings.length}</div>
+          <div className="rounded-xl border border-border bg-muted p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">ถูกจอง</div>
+            <div className="mt-1 text-xl font-bold text-foreground">{bookings.length}</div>
           </div>
         </div>
 
-        <div className="mt-4 max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2 text-sm">
+        <div className="mt-5 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border bg-background p-2 text-sm">
           {bookings.length === 0 && (
-            <div className="px-2 py-3 text-center text-muted-foreground">
+            <div className="px-2 py-6 text-center text-muted-foreground">
               ยังไม่มีผู้จอง
             </div>
           )}
-          {bookings.map((b) => (
-            <div
-              key={b.id}
-              className={`flex items-center justify-between rounded px-2 py-1 ${
-                b.owner_token === myToken ? "bg-sky-50 dark:bg-sky-950/30" : ""
-              }`}
-            >
-              <span>
-                {b.nickname}{" "}
-                <span className="text-muted-foreground">{b.class_name}</span>
-                {b.owner_token === myToken && (
-                  <span className="ml-1 text-xs text-sky-600">(คุณ)</span>
+          {bookings.map((b) => {
+            const isMine = b.owner_token === myToken;
+            return (
+              <div
+                key={b.id}
+                className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                  isMine ? "bg-primary/10" : "hover:bg-muted/60"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                    {b.nickname.slice(0, 1)}
+                  </span>
+                  <span>
+                    <span className="font-medium">{b.nickname}</span>{" "}
+                    <span className="text-muted-foreground">· {b.class_name}</span>
+                    {isMine && (
+                      <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        คุณ
+                      </span>
+                    )}
+                  </span>
+                </span>
+                {isMine && (
+                  <button
+                    onClick={() => onCancel(b.id)}
+                    className="text-xs font-medium text-destructive hover:underline"
+                  >
+                    ยกเลิก
+                  </button>
                 )}
-              </span>
-              {b.owner_token === myToken && (
-                <button
-                  onClick={() => onCancel(b.id)}
-                  className="text-xs text-rose-600 hover:underline"
-                >
-                  ยกเลิก
-                </button>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
 
         {mine ? (
           <button
             onClick={() => onCancel(mine.id)}
-            className="mt-4 w-full rounded-lg bg-sky-500 px-4 py-3 font-medium text-white hover:bg-sky-600"
+            className="mt-5 w-full rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 font-semibold text-destructive transition hover:bg-destructive/10"
           >
             ยกเลิกการจองของฉัน
           </button>
@@ -498,7 +558,8 @@ function DetailPanel({
           <button
             onClick={onBook}
             disabled={free === 0}
-            className="mt-4 w-full rounded-lg bg-emerald-500 px-4 py-3 font-medium text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 w-full rounded-xl px-4 py-3 font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            style={{ background: "var(--gradient-hero)" }}
           >
             {free === 0 ? "ที่นั่งเต็ม" : "จองช่วงเวลานี้"}
           </button>
@@ -541,28 +602,29 @@ function BookingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/30 p-4 backdrop-blur-sm sm:items-center">
       <form
         onSubmit={submit}
-        className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-glow)]"
       >
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold">จอง {subject}</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               วัน{day} • {slot.name} {slot.time}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-muted-foreground hover:bg-accent"
+            className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            aria-label="ปิด"
           >
             ✕
           </button>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-5 space-y-3">
           <label className="block">
             <span className="text-sm font-medium">ชื่อเล่น</span>
             <input
@@ -572,7 +634,7 @@ function BookingModal({
               maxLength={40}
               required
               placeholder="เช่น ต๊ะ"
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm transition focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
             />
           </label>
           <label className="block">
@@ -583,7 +645,7 @@ function BookingModal({
               maxLength={40}
               required
               placeholder="เช่น 3/8"
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm transition focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
             />
           </label>
         </div>
@@ -591,7 +653,8 @@ function BookingModal({
         <button
           type="submit"
           disabled={submitting}
-          className="mt-5 w-full rounded-lg bg-emerald-500 px-4 py-3 font-medium text-white transition hover:bg-emerald-600 disabled:opacity-50"
+          className="mt-6 w-full rounded-xl px-4 py-3 font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90 disabled:opacity-50"
+          style={{ background: "var(--gradient-hero)" }}
         >
           {submitting ? "กำลังจอง..." : "ยืนยันการจอง"}
         </button>
@@ -599,3 +662,4 @@ function BookingModal({
     </div>
   );
 }
+
